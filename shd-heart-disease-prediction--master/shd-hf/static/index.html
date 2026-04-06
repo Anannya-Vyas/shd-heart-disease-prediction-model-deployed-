@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SHD Screening AI — Heart Health Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F5F2; --surface: #FFFFFF; --surface2: #F0EDE8;
+    --border: #E2DDD6; --border-dark: #C8C2B8;
+    --text: #1A1714; --text-muted: #6B6560; --text-light: #9E9890;
+    --accent: #C0392B; --accent-light: #FAEAEA; --accent-mid: #E74C3C;
+    --teal: #1A7A6E; --teal-light: #E1F5F2;
+    --amber: #B8650A; --amber-light: #FFF4E5;
+    --green: #2D7A4F; --green-light: #EAF5EE;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+  .header { background: var(--text); color: white; padding: 0 2rem; display: flex; align-items: center; height: 64px; position: sticky; top: 0; z-index: 100; gap: 12px; }
+  .header-icon { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .header h1 { font-family: 'DM Serif Display', serif; font-size: 18px; font-weight: 400; color: white; }
+  .header-sub { font-size: 12px; color: rgba(255,255,255,0.45); margin-left: auto; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  .layout { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  .steps { display: flex; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 1.5rem; }
+  .step { flex: 1; padding: 10px 14px; font-size: 12px; font-weight: 500; text-align: center; color: var(--text-light); border-right: 1px solid var(--border); cursor: pointer; transition: all 0.15s; }
+  .step:last-child { border-right: none; }
+  .step.active { background: var(--text); color: white; }
+  .step.completed { background: var(--green-light); color: var(--green); }
+  .step-num { font-size: 16px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .step-label { text-transform: uppercase; letter-spacing: 0.04em; display: block; }
+
+  .form-section { display: none; }
+  .form-section.visible { display: block; }
+
+  .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 1rem; }
+  .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; background: var(--surface2); }
+  .card-header-icon { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .card-header h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .card-body { padding: 20px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .span2 { grid-column: span 2; }
+
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .field input, .field select, .field textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: var(--surface); transition: border-color 0.15s; outline: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(192,57,43,0.08); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .req { color: var(--accent); }
+
+  .toggle-group { display: flex; gap: 6px; }
+  .toggle-btn { flex: 1; padding: 8px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.15s; text-align: center; }
+  .toggle-btn:hover { border-color: var(--border-dark); color: var(--text); }
+  .toggle-btn.active-yes { background: var(--green-light); border-color: var(--green); color: var(--green); }
+  .toggle-btn.active-no { background: var(--surface2); border-color: var(--border-dark); color: var(--text-muted); }
+  .toggle-btn.active-present { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .toggle-btn.active-absent { background: var(--surface2); border-color: var(--border-dark); color: var(--text-muted); }
+  .toggle-btn.active-unknown { background: var(--amber-light); border-color: var(--amber); color: var(--amber); }
+
+  .symptom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .symptom-item { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; border: 1px solid var(--border); }
+  .symptom-item label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+
+  .nav-buttons { display: flex; gap: 10px; margin-top: 20px; }
+  .nav-btn { padding: 10px 20px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; color: var(--text); }
+  .nav-btn:hover { background: var(--surface2); }
+  .nav-btn.next { background: var(--text); color: white; border-color: var(--text); margin-left: auto; }
+  .nav-btn.next:hover { background: #2d2926; }
+
+  .analyze-btn { width: 100%; padding: 16px; background: var(--text); color: white; border: none; border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s; }
+  .analyze-btn:hover { background: #2d2926; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .analyze-btn:disabled { background: var(--border-dark); cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-heart { width: 20px; height: 20px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+
+  .status-bar { display: none; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; margin-top: 12px; }
+  .status-bar.visible { display: flex; }
+  .status-bar.analyzing { background: var(--amber-light); color: var(--amber); }
+  .status-bar.done { background: var(--green-light); color: var(--green); }
+  .status-bar.error { background: var(--accent-light); color: var(--accent); }
+  .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  #output-section { display: none; }
+  #output-section.visible { display: block; }
+
+  .output-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface2); gap: 12px; flex-wrap: wrap; }
+  .output-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
+  .dl-btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dl-btn { padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s; color: var(--text); }
+  .dl-btn:hover { border-color: var(--border-dark); background: var(--surface2); }
+  .dl-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .dl-btn.primary:hover { background: var(--accent-mid); }
+  .output-content { padding: 28px 32px; font-size: 14px; line-height: 1.85; color: var(--text); min-height: 200px; }
+
+  footer { background: var(--surface2); border-top: 1px solid var(--border); padding: 20px 2rem; text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 40px; }
+  footer a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 720px) {
+    .two-col, .form-grid, .symptom-grid { grid-template-columns: 1fr; }
+    .span2 { grid-column: 1; }
+    .header-sub { display: none; }
+    footer > div > div:first-child { grid-template-columns: 1fr !important; gap: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-icon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  </div>
+  <h1>SHD Screening AI</h1>
+  <span class="header-sub">By Anannya Vyas • 2026</span>
+</header>
+
+<div class="layout">
+
+  <div class="steps">
+    <div class="step active" id="step-1" onclick="goToStep(1)"><span class="step-num">1</span><span class="step-label">Demographics</span></div>
+    <div class="step" id="step-2" onclick="goToStep(2)"><span class="step-num">2</span><span class="step-label">Vitals & Lifestyle</span></div>
+    <div class="step" id="step-3" onclick="goToStep(3)"><span class="step-num">3</span><span class="step-label">Symptoms</span></div>
+    <div class="step" id="step-4" onclick="goToStep(4)"><span class="step-num">4</span><span class="step-label">Analyze</span></div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="form-section visible" id="section-1">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:#F0EDE8">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B6560" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        </div>
+        <h2>Patient Demographics</h2>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="field span2"><label>Full Name <span class="req">*</span></label><input type="text" id="name" placeholder="e.g. Arjun Sharma" /></div>
+          <div class="field"><label>Age <span class="req">*</span></label><input type="number" id="age" placeholder="e.g. 45" /></div>
+          <div class="field"><label>Age Group <span class="req">*</span></label>
+            <select id="age_group">
+              <option value="">Select...</option>
+              <option>Newborn (0–28 days)</option><option>Infant (1–12 months)</option>
+              <option>Child (1–12 years)</option><option>Adolescent (13–17)</option>
+              <option>Adult (18–60)</option><option>Senior (60+)</option>
+            </select>
+          </div>
+          <div class="field"><label>Gender <span class="req">*</span></label>
+            <select id="gender"><option value="">Select...</option><option>Male</option><option>Female</option><option>Other</option></select>
+          </div>
+          <div class="field"><label>City / Location <span class="req">*</span></label><input type="text" id="city" placeholder="e.g. Amritsar, Punjab" /></div>
+          <div class="field"><label>Height (cm)</label><input type="number" id="height" placeholder="e.g. 170" /></div>
+          <div class="field"><label>Weight (kg)</label><input type="number" id="weight" placeholder="e.g. 68" /></div>
+        </div>
+        <div class="nav-buttons"><button class="nav-btn next" onclick="goToStep(2)">Next: Vitals & Lifestyle →</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="form-section" id="section-2">
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:#E1F5F2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1A7A6E" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <h2>Vitals</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="field span2"><label>Blood Pressure</label><input type="text" id="bp" placeholder="e.g. 130/85 mmHg" /></div>
+            <div class="field"><label>Heart Rate (BPM)</label><input type="number" id="hr" placeholder="e.g. 78" /></div>
+            <div class="field"><label>SpO2 (%)</label><input type="number" id="spo2" placeholder="e.g. 98" /></div>
+            <div class="field span2"><label>Known Allergies</label><input type="text" id="allergies" placeholder="e.g. Penicillin, or None" /></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon" style="background:#FFF4E5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B8650A" stroke-width="2.5"><path d="M18 8h1a4 4 0 010 8h-1"/><path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          </div>
+          <h2>Lifestyle & History</h2>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="symptom-item"><label>Smoking</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'smoking','Yes','active-yes')">Yes</button><button class="toggle-btn" onclick="setToggle(this,'smoking','No','active-no')">No</button></div></div>
+            <div class="symptom-item"><label>Alcohol</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'alcohol','Yes','active-yes')">Yes</button><button class="toggle-btn" onclick="setToggle(this,'alcohol','No','active-no')">No</button></div></div>
+            <div class="symptom-item"><label>Tobacco / Gutka</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'tobacco','Yes','active-yes')">Yes</button><button class="toggle-btn" onclick="setToggle(this,'tobacco','No','active-no')">No</button></div></div>
+            <div class="symptom-item"><label>Hypertensive Drugs</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'hypertensive','Yes','active-yes')">Yes</button><button class="toggle-btn" onclick="setToggle(this,'hypertensive','No','active-no')">No</button></div></div>
+            <div class="symptom-item"><label>Diabetes / High Sugar</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'diabetes','Yes','active-yes')">Yes</button><button class="toggle-btn" onclick="setToggle(this,'diabetes','No','active-no')">No</button></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="nav-buttons"><button class="nav-btn" onclick="goToStep(1)">← Back</button><button class="nav-btn next" onclick="goToStep(3)">Next: Symptoms →</button></div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="form-section" id="section-3">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:#FAEAEA">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C0392B" stroke-width="2.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <h2>SHD-Specific Symptoms</h2>
+      </div>
+      <div class="card-body">
+        <div class="symptom-grid">
+          <div class="symptom-item"><label>Cyanosis (Blue lips/nails)</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'cyanosis','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'cyanosis','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'cyanosis','Unsure','active-unknown')">Unsure</button></div></div>
+          <div class="symptom-item"><label>Chest Pain / Tightness</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'chest_pain','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'chest_pain','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'chest_pain','Unsure','active-unknown')">Unsure</button></div></div>
+          <div class="symptom-item"><label>Fatigue / Easy Tiring</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'fatigue','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'fatigue','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'fatigue','Unsure','active-unknown')">Unsure</button></div></div>
+          <div class="symptom-item"><label>Shortness of Breath</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'sob','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'sob','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'sob','Unsure','active-unknown')">Unsure</button></div></div>
+          <div class="symptom-item"><label>Syncope / Fainting</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'syncope','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'syncope','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'syncope','Unsure','active-unknown')">Unsure</button></div></div>
+          <div class="symptom-item"><label>Palpitations</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'palpitations','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'palpitations','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'palpitations','Unsure','active-unknown')">Unsure</button></div></div>
+          <div class="symptom-item"><label>Family History of Heart Disease</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'family_history','Yes','active-yes')">Yes</button><button class="toggle-btn" onclick="setToggle(this,'family_history','No','active-no')">No</button><button class="toggle-btn" onclick="setToggle(this,'family_history','Unknown','active-unknown')">Unknown</button></div></div>
+          <div class="symptom-item"><label>Feeding Issues (Newborns only)</label><div class="toggle-group"><button class="toggle-btn" onclick="setToggle(this,'feeding','Present','active-present')">Present</button><button class="toggle-btn" onclick="setToggle(this,'feeding','Absent','active-absent')">Absent</button><button class="toggle-btn" onclick="setToggle(this,'feeding','N/A','active-no')">N/A</button></div></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Additional Symptoms / Notes</label><textarea id="symptoms" placeholder="Describe any other symptoms, duration, severity, or relevant medical history..."></textarea></div>
+      </div>
+    </div>
+    <div class="nav-buttons"><button class="nav-btn" onclick="goToStep(2)">← Back</button><button class="nav-btn next" onclick="goToStep(4)">Next: Analyze →</button></div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="form-section" id="section-4">
+    <div class="card" style="margin-bottom:1rem">
+      <div class="card-body" style="background:var(--green-light);border-radius:var(--radius)">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2D7A4F" stroke-width="2.5" style="flex-shrink:0;margin-top:2px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div>
+            <p style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:4px">Your data is private & secure</p>
+            <p style="font-size:13px;color:var(--green);opacity:0.85">Analysis runs through our secure server. Your patient data is never stored or logged.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="analyze-btn" id="analyze-btn" onclick="analyze()">
+      <svg class="btn-heart" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      Analyze Heart Health
+    </button>
+
+    <div class="status-bar" id="status-bar">
+      <div class="spinner"></div>
+      <span id="status-text">Analyzing your heart health data... please wait.</span>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="nav-btn" onclick="goToStep(3)">← Back to Symptoms</button>
+      <button class="nav-btn" onclick="clearAll()" style="color:var(--accent);border-color:var(--accent)">Clear All</button>
+    </div>
+  </div>
+
+  <!-- OUTPUT -->
+  <div id="output-section">
+    <div class="card">
+      <div class="output-toolbar">
+        <div class="output-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          AI Analysis Report
+        </div>
+        <div class="dl-btn-group">
+          <button class="dl-btn" onclick="copyReport()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy
+          </button>
+          <button class="dl-btn" onclick="downloadTXT()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download .TXT
+          </button>
+          <button class="dl-btn primary" onclick="downloadPDF()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Download PDF
+          </button>
+        </div>
+      </div>
+      <div class="output-content" id="output-content"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const state = { smoking:'',alcohol:'',tobacco:'',hypertensive:'',diabetes:'',cyanosis:'',chest_pain:'',fatigue:'',sob:'',syncope:'',palpitations:'',family_history:'',feeding:'' };
+
+function goToStep(n) {
+  document.querySelectorAll('.form-section').forEach(s => s.classList.remove('visible'));
+  document.getElementById('section-'+n).classList.add('visible');
+  document.querySelectorAll('.step').forEach((s,i) => {
+    s.classList.remove('active','completed');
+    if (i+1 < n) s.classList.add('completed');
+    else if (i+1 === n) s.classList.add('active');
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function setToggle(btn, key, val, cls) {
+  btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.className='toggle-btn');
+  btn.classList.add(cls);
+  state[key] = val;
+}
+
+function getData() {
+  return {
+    name: document.getElementById('name').value||'Not provided',
+    age: document.getElementById('age').value||'Not provided',
+    age_group: document.getElementById('age_group').value||'Not provided',
+    gender: document.getElementById('gender').value||'Not provided',
+    height: document.getElementById('height').value||'Not provided',
+    weight: document.getElementById('weight').value||'Not provided',
+    city: document.getElementById('city').value||'Not provided',
+    bp: document.getElementById('bp').value||'Not measured',
+    hr: document.getElementById('hr').value||'Not measured',
+    spo2: document.getElementById('spo2').value||'Not measured',
+    allergies: document.getElementById('allergies').value||'None known',
+    ...Object.fromEntries(Object.entries(state).map(([k,v])=>[k,v||'Not specified'])),
+    symptoms: document.getElementById('symptoms').value||'None additional'
+  };
+}
+
+function buildPrompt(data) {
+  return `You are a clinical assistant AI for early detection of structural heart diseases (SHD) in India.
+
+Patient: ${data.name}, Age: ${data.age} (${data.age_group}), Gender: ${data.gender}, Location: ${data.city}
+Height: ${data.height}cm, Weight: ${data.weight}kg
+Vitals — BP: ${data.bp}, HR: ${data.hr} BPM, SpO2: ${data.spo2}%, Allergies: ${data.allergies}
+Lifestyle — Smoking: ${data.smoking}, Alcohol: ${data.alcohol}, Tobacco: ${data.tobacco}, Hypertensive Drugs: ${data.hypertensive}, Diabetes: ${data.diabetes}
+Symptoms — Cyanosis: ${data.cyanosis}, Chest Pain: ${data.chest_pain}, Fatigue: ${data.fatigue}, Dyspnea: ${data.sob}, Syncope: ${data.syncope}, Palpitations: ${data.palpitations}, Family History: ${data.family_history}, Feeding Issues: ${data.feeding}
+Additional: ${data.symptoms}
+
+Provide a structured analysis with these exact section headers (in ALL CAPS):
+
+RISK ASSESSMENT
+Risk score 0-10 with justification. State if urgent cardiologist consult needed.
+
+POSSIBLE CONDITIONS
+Likely SHD conditions in order of probability with brief explanation.
+
+RECOMMENDED INVESTIGATIONS
+Tests needed (ECG, Echo, etc.) prioritized by urgency.
+
+NEARBY CARDIAC CARE (${data.city})
+3 cardiac hospitals near ${data.city}, India.
+
+WHAT TO TELL YOUR DOCTOR
+Key points to communicate to the cardiologist.
+
+IF IN A RURAL OR LOW-RESOURCE AREA
+Alternative screening options.
+
+RED FLAGS — SEEK EMERGENCY CARE IF
+Symptoms requiring immediate emergency attention.
+
+DOCTOR SUMMARY
+3-4 sentence professional summary for the cardiologist.
+
+ONGOING MONITORING
+Continuous care and lifestyle recommendations.
+
+Be clear, compassionate, and actionable.`;
+}
+
+async function analyze() {
+  if (!document.getElementById('name').value.trim()) {
+    alert('Please fill in the patient name first.');
+    goToStep(1); return;
+  }
+  const btn = document.getElementById('analyze-btn');
+  const statusBar = document.getElementById('status-bar');
+  const statusText = document.getElementById('status-text');
+  btn.disabled = true;
+  statusBar.className = 'status-bar visible analyzing';
+  statusText.textContent = 'Analyzing your heart health data... please wait.';
+  document.getElementById('output-section').style.display = 'none';
+
+  try {
+    const data = getData();
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt: buildPrompt(data) })
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Server error');
+    }
+    const result = await response.json();
+    document.getElementById('output-content').innerHTML = formatReport(result.result, data);
+    document.getElementById('output-section').style.display = 'block';
+    statusBar.className = 'status-bar visible done';
+    statusText.textContent = 'Analysis complete. Report is ready below.';
+    document.getElementById('output-section').scrollIntoView({behavior:'smooth'});
+  } catch(err) {
+    statusBar.className = 'status-bar visible error';
+    statusText.textContent = 'Error: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function formatReport(text, data) {
+  const date = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  const sectionColors = {
+    'RISK':['#FAEAEA','#C0392B','#F5C4B3'],
+    'POSSIBLE':['#FFF4E5','#B8650A','#F0C97A'],
+    'RECOMMENDED':['#E1F5F2','#1A7A6E','#9FE1CB'],
+    'NEARBY':['#F0EDE8','#6B6560','#D3D1C7'],
+    'WHAT TO TELL':['#E6F1FB','#185FA5','#B5D4F4'],
+    'IF IN A RURAL':['#F0EDE8','#6B6560','#D3D1C7'],
+    'RED FLAGS':['#FAEAEA','#C0392B','#F5C4B3'],
+    'DOCTOR SUMMARY':['#EAF3DE','#3B6D11','#C0DD97'],
+    'ONGOING':['#F0EDE8','#6B6560','#D3D1C7'],
+  };
+  let html = `<div style="border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+    <div><p style="font-size:11px;font-weight:600;color:var(--text-light);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">SHD Screening Report</p>
+    <h2 style="font-family:'DM Serif Display',serif;font-size:22px;font-weight:400;margin-bottom:4px">${data.name}</h2>
+    <p style="font-size:13px;color:var(--text-muted)">${data.age} years • ${data.gender} • ${data.city}</p></div>
+    <div style="text-align:right"><p style="font-size:11px;color:var(--text-light)">Generated on</p><p style="font-size:13px;font-weight:500;color:var(--text-muted)">${date}</p></div>
+  </div>`;
+  text.split('\n').forEach(line => {
+    const t = line.trim();
+    if (!t) { html += '<br/>'; return; }
+    const isHeader = t === t.toUpperCase() && t.length > 5 && /[A-Z]{3,}/.test(t);
+    if (isHeader) {
+      let s = ['#F7F5F2','#1A1714','#E2DDD6'];
+      for (const [k,v] of Object.entries(sectionColors)) { if (t.includes(k)) { s=v; break; } }
+      html += `<div style="margin:20px 0 10px;background:${s[0]};border-left:3px solid ${s[1]};border:1px solid ${s[2]};border-left:3px solid ${s[1]};border-radius:0 8px 8px 0;padding:10px 14px"><p style="font-size:11px;font-weight:700;color:${s[1]};letter-spacing:.08em;text-transform:uppercase">${t}</p></div>`;
+      return;
+    }
+    if (t.startsWith('- ')||t.startsWith('• ')||t.startsWith('* ')) {
+      html += `<div style="display:flex;gap:8px;margin:4px 0;padding-left:8px"><span style="color:var(--accent);font-weight:700;flex-shrink:0">•</span><span style="font-size:14px;line-height:1.7">${t.slice(2).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</span></div>`;
+      return;
+    }
+    const num = t.match(/^(\d+)\.\s(.+)/);
+    if (num) {
+      html += `<div style="display:flex;gap:10px;margin:5px 0;padding-left:8px"><span style="color:var(--accent);font-weight:700;flex-shrink:0;min-width:18px">${num[1]}.</span><span style="font-size:14px;line-height:1.7">${num[2].replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</span></div>`;
+      return;
+    }
+    html += `<p style="font-size:14px;line-height:1.8;margin:4px 0">${t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`;
+  });
+  html += `<div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--border);text-align:center"><p style="font-size:11px;color:var(--text-light);line-height:1.6">This report is generated by AI for informational purposes only and does not constitute medical advice.<br/>Always consult a qualified cardiologist or healthcare provider for diagnosis and treatment.</p></div>`;
+  return html;
+}
+
+function getRawText() { return document.getElementById('output-content')?.innerText || ''; }
+
+function copyReport() {
+  const t = getRawText();
+  if (!t) { alert('No report to copy.'); return; }
+  navigator.clipboard.writeText(t).then(()=>alert('Copied!')).catch(()=>alert('Please select and copy manually.'));
+}
+
+function downloadTXT() {
+  const t = getRawText();
+  if (!t) { alert('No report to download.'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([t],{type:'text/plain'}));
+  a.download = 'SHD_Report_'+(document.getElementById('name').value.replace(/\s+/g,'_')||'Patient')+'.txt';
+  a.click();
+}
+
+function downloadPDF() {
+  const text = getRawText();
+  if (!text) { alert('No report to download.'); return; }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit:'mm',format:'a4'});
+  const name = document.getElementById('name').value || 'Patient';
+  const date = new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  doc.setFillColor(26,23,20); doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('SHD SCREENING REPORT',20,12);
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
+  doc.text('Structural Heart Disease Early Detection — AI Analysis',20,20);
+  doc.setFillColor(240,237,232); doc.rect(0,28,210,16,'F');
+  doc.setTextColor(26,23,20); doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.text(name,20,38); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+  doc.setTextColor(107,101,96); doc.text('Generated: '+date,150,38);
+  doc.setTextColor(26,23,20); doc.setFontSize(10); doc.setFont('helvetica','normal');
+  let y = 54;
+  doc.splitTextToSize(text,170).forEach(line => {
+    if (y>275){doc.addPage();y=20;}
+    const isH = line.trim()===line.trim().toUpperCase()&&line.trim().length>6&&/[A-Z]{3,}/.test(line);
+    if (isH) {
+      doc.setFillColor(250,234,234); doc.rect(14,y-4,182,8,'F');
+      doc.setFont('helvetica','bold'); doc.setTextColor(192,57,43);
+      doc.text(line.trim(),20,y+1);
+      doc.setFont('helvetica','normal'); doc.setTextColor(26,23,20); y+=10;
+    } else { doc.text(line,20,y); y+=6; }
+  });
+  const pg = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pg;i++){
+    doc.setPage(i); doc.setFillColor(26,23,20); doc.rect(0,287,210,10,'F');
+    doc.setTextColor(150,150,150); doc.setFontSize(8);
+    doc.text('AI-generated report — For informational purposes only. Consult a qualified cardiologist.',20,293);
+    doc.text('Page '+i+' of '+pg,185,293);
+  }
+  doc.save('SHD_Report_'+name.replace(/\s+/g,'_')+'.pdf');
+}
+
+function clearAll() {
+  if (!confirm('Clear all form data?')) return;
+  ['name','age','height','weight','city','bp','hr','spo2','allergies','symptoms'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['age_group','gender'].forEach(id=>{const e=document.getElementById(id);if(e)e.selectedIndex=0;});
+  document.querySelectorAll('.toggle-btn').forEach(b=>b.className='toggle-btn');
+  Object.keys(state).forEach(k=>state[k]='');
+  document.getElementById('output-section').style.display='none';
+  document.getElementById('status-bar').className='status-bar';
+  document.getElementById('output-content').innerHTML='';
+  goToStep(1);
+}
+</script>
+
+<footer>
+  <div style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 40px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; text-align: left;">
+      <!-- About Section -->
+      <div>
+        <h3 style="font-size: 13px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">About This App</h3>
+        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.6;">SHD Screening AI helps detect early signs of structural heart disease through AI-powered analysis. Created by <a href="https://github.com/Anannya-Vyas" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 500;">Anannya Vyas</a> in 2026.</p>
+      </div>
+      <!-- Contribute Section -->
+      <div>
+        <h3 style="font-size: 13px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px;">🤝 Contribute</h3>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Love this app? Help improve it!</p>
+        <ul style="list-style: none; padding: 0; font-size: 12px;">
+          <li style="margin-bottom: 6px;"><a href="https://github.com/Anannya-Vyas/shd-heart-disease-prediction-" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 500;">⭐ Star on GitHub</a></li>
+          <li style="margin-bottom: 6px;"><a href="https://github.com/Anannya-Vyas/shd-heart-disease-prediction-/fork" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 500;">🍴 Fork the Repository</a></li>
+          <li style="margin-bottom: 6px;"><a href="https://github.com/Anannya-Vyas/shd-heart-disease-prediction-/issues" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 500;">🐛 Report Issues</a></li>
+          <li><a href="https://github.com/Anannya-Vyas/shd-heart-disease-prediction-/pulls" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 500;">✨ Submit a Pull Request</a></li>
+        </ul>
+      </div>
+    </div>
+    <div style="text-align: center; padding-top: 15px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-light);">
+      <p>Made with ❤️ for early heart disease detection • <a href="https://github.com/Anannya-Vyas/shd-heart-disease-prediction-" target="_blank" style="color: var(--accent); text-decoration: none;">GitHub Repository</a></p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
